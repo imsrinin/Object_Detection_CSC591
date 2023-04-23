@@ -549,3 +549,13 @@ print('total time taken for inference in cpu for pruned and qunatized model is :
 #   warnings.warn(
 # Overall accuracy of quantized model is 87.78%
 # total time taken for inference in cpu for pruned and qunatized model is :  3.0035369396209717
+
+
+#local structured
+# total time taken for training iterative pruning model in cuda is :  1427.3718922138214
+# Overall accuracy of baseline model is 75.94999999999999%
+# total time taken for inference in cpu for pruned model is :  6.84194278717041
+# /home/snaray23/anaconda3/envs/ro/lib/python3.10/site-packages/torch/ao/quantization/observer.py:214: UserWarning: Please use quant_min and quant_max to specify the range for observers.                     reduce_range will be deprecated in a future release of PyTorch.
+#   warnings.warn(
+# Overall accuracy of quantized model is 74.53999999999999%
+# total time taken for inference in cpu for pruned and qunatized model is :  2.7970638275146484
