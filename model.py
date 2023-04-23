@@ -358,6 +358,7 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
 
 
 def prune_model(model, pruning_rate, mode):
+
     if mode == 'global_unstructured':
         parameters_to_prune = []
         for name, module in model.named_modules():
@@ -376,7 +377,6 @@ def prune_model(model, pruning_rate, mode):
                 if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
                     parameters_to_prune.append((module, 'weight'))
 
-
             prune.global_unstructured(
                 parameters_to_prune,
                 pruning_method=prune.LnStructured,
@@ -389,12 +389,11 @@ def prune_model(model, pruning_rate, mode):
 
     if mode == 'local_structured':
         for name, module in model.named_modules():
-            if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-                prune.ln_structured(module, 'weight', amount=pruning_rate)
+            if isinstance(module, nn.Conv2d):
+                # prune.ln_structured(module, 'weight', amount=pruning_rate)
+                prune.ln_structured(module, name='weight', amount=pruning_rate, n=2, dim=0)
 
-    for name, module in model.named_modules():
-        if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-            prune.remove(module, 'weight')
+
 
     return model
 
@@ -406,7 +405,7 @@ start_time = time.time()
 
 for i in range(10): 
     print(f"Iteration {i+1}: Pruning model...")
-    model = prune_model(model, 0.5, mode = 'local_unstructured')
+    model = prune_model(model, 0.2, mode = 'local_structured')
 
     print("Training pruned model...")
 
@@ -426,10 +425,20 @@ for i in range(10):
                 print(f'epoch {epoch+1}/{num_epochs}, step: {batch_idx+1}/{n_total_step}: loss = {loss:.5f}, acc = {100*(n_corrects/target.size(0)):.2f}%')
 
 
+for name, module in model.named_modules():
+        # if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
+        if isinstance(module, nn.Conv2d):
+            prune.remove(module, 'weight')
+
 end_time = time.time()
 
 
 print('total time taken for training iterative pruning model in cuda is : ', (end_time-start_time))
+
+# torch.save(model.state_dict(), 'model.pth')
+
+# model = qResNet50()
+# model.load_state_dict(torch.load('model.pth'))
 
 model.to('cpu')
 
@@ -510,18 +519,33 @@ print('total time taken for inference in cpu for pruned and qunatized model is :
 # Overall accuracy of quantized model is 87.57000000000001%
 # total time taken for inference in cpu for qunatized model is :  2.690927505493164
 
-# total time taken for training iterative pruning model in cuda is :  1363.6707231998444
-# Overall accuracy of baseline model is 88.62%
-# total time taken for inference in cpu for pruned model is :  6.930408954620361
-# /home/snaray23/anaconda3/envs/ro/lib/python3.10/site-packages/torch/ao/quantization/observer.py:214: UserWarning: Please use quant_min and quant_max to specify the range for observers.                     reduce_range will be deprecated in a future release of PyTorch.
-#   warnings.warn(
-# Overall accuracy of quantized model is 88.31%
-# total time taken for inference in cpu for pruned and qunatized model is :  2.8845582008361816
+# local_unstructured
 
-# total time taken for training iterative pruning model in cuda is :  1366.3293838500977
-# Overall accuracy of baseline model is 88.71%
-# total time taken for inference in cpu for pruned model is :  6.792319059371948
+# 100*.8**10
+# total time taken for training iterative pruning model in cuda is :  1449.4395537376404
+# Overall accuracy of baseline model is 87.47%
+# total time taken for inference in cpu for pruned model is :  6.844406366348267
 # /home/snaray23/anaconda3/envs/ro/lib/python3.10/site-packages/torch/ao/quantization/observer.py:214: UserWarning: Please use quant_min and quant_max to specify the range for observers.                     reduce_range will be deprecated in a future release of PyTorch.
 #   warnings.warn(
-# Overall accuracy of quantized model is 88.51%
-# total time taken for inference in cpu for pruned and qunatized model is :  2.6693942546844482
+# Overall accuracy of quantized model is 87.1%
+# total time taken for inference in cpu for pruned and qunatized model is :  2.7638072967529297
+
+
+# 100*.75**10
+# total time taken for training iterative pruning model in cuda is :  1437.9992098808289
+# Overall accuracy of baseline model is 87.35000000000001%
+# total time taken for inference in cpu for pruned model is :  6.825281143188477
+# /home/snaray23/anaconda3/envs/ro/lib/python3.10/site-packages/torch/ao/quantization/observer.py:214: UserWarning: Please use quant_min and quant_max to specify the range for observers.                     reduce_range will be deprecated in a future release of PyTorch.
+#   warnings.warn(
+# Overall accuracy of quantized model is 86.69%
+# total time taken for inference in cpu for pruned and qunatized model is :  2.6152946949005127
+
+
+# global_unstructured
+# total time taken for training iterative pruning model in cuda is :  1441.416865348816
+# Overall accuracy of baseline model is 88.03%
+# total time taken for inference in cpu for pruned model is :  6.759032964706421
+# /home/snaray23/anaconda3/envs/ro/lib/python3.10/site-packages/torch/ao/quantization/observer.py:214: UserWarning: Please use quant_min and quant_max to specify the range for observers.                     reduce_range will be deprecated in a future release of PyTorch.
+#   warnings.warn(
+# Overall accuracy of quantized model is 87.78%
+# total time taken for inference in cpu for pruned and qunatized model is :  3.0035369396209717
