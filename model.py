@@ -399,17 +399,21 @@ def prune_model(model, pruning_rate, mode):
 
 model.train()
 model.to(device)
-
+model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
+torch.quantization.prepare_qat(model,inplace=True)
 start_time = time.time()
 
 
-for i in range(10): 
-    print(f"Iteration {i+1}: Pruning model...")
-    model = prune_model(model, 0.2, mode = 'local_structured')
+for i in range(1): 
+    # print(f"Iteration {i+1}: Pruning model...")
+    # model = prune_model(model, 0.94, mode = 'local_unstructured')
 
-    print("Training pruned model...")
+    # print("Training pruned model...")
 
-    for epoch in range(10):
+    for epoch in range(100):
+        # if epoch == 90:
+            # model = prune_model(model, 0.94, mode = 'local_unstructured')      
+            # print("Training pruned model...")
         for batch_idx, (data, target) in enumerate(train_loader):
 
             data, target = data.to(device), target.to(device)
@@ -423,12 +427,14 @@ for i in range(10):
         
             if (batch_idx+1) % 20 == 0:
                 print(f'epoch {epoch+1}/{num_epochs}, step: {batch_idx+1}/{n_total_step}: loss = {loss:.5f}, acc = {100*(n_corrects/target.size(0)):.2f}%')
+            
 
 
-for name, module in model.named_modules():
-        # if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-        if isinstance(module, nn.Conv2d):
-            prune.remove(module, 'weight')
+
+# for name, module in model.named_modules():
+#         # if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
+#         if isinstance(module, nn.Conv2d):
+#             prune.remove(module, 'weight')
 
 end_time = time.time()
 
@@ -443,6 +449,8 @@ print('total time taken for training iterative pruning model in cuda is : ', (en
 model.to('cpu')
 
 model.eval()
+torch.quantization.convert(model, inplace = True)
+
 #inference latency
 inf_base_start = time.time()
 
@@ -463,52 +471,74 @@ inf_base_end = time.time()
 
 print('total time taken for inference in cpu for pruned model is : ', (inf_base_end-inf_base_start))
 
-model.eval()
+# model.eval()
 
-model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
+# # model.qconfig = torch.quantization.QConfig(activation=torch.quantization.MinMaxObserver.with_args(dtype=torch.quint4x2, qscheme=torch.per_tensor_symmetric),
+# #                                     weight=torch.quantization.MinMaxObserver.with_args(dtype=torch.quint4x2, qscheme=torch.per_tensor_symmetric))
+# # model = torch.quantization.quantize_dynamic(
+# #     model,  # the model to be quantized
+# #     {torch.nn.Conv2d, torch.nn.Linear},
+# #      dtype=torch.qint8
+# # )
+# model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
 
-torch.quantization.prepare(model, inplace = True)
+# torch.quantization.prepare(model, inplace = True)
 
 
-calib = torch.utils.data.DataLoader(
-    train_dataset,
-    batch_size=32,
-    sampler=torch.utils.data.RandomSampler(train_dataset, num_samples=1000),
-    num_workers=4,
-    pin_memory=True
-)
+# calib = torch.utils.data.DataLoader(
+#     train_dataset,
+#     batch_size=32,
+#     sampler=torch.utils.data.RandomSampler(train_dataset, num_samples=1000),
+#     num_workers=4,
+#     pin_memory=True
+# )
 
-with torch.no_grad():
-    for i, (test_images_set , test_labels_set) in enumerate(calib):
-        test_images_set = test_images_set.to('cpu')
-        test_labels_set = test_labels_set.to('cpu')
+# with torch.no_grad():
+#     for i, (test_images_set , test_labels_set) in enumerate(calib):
+#         test_images_set = test_images_set.to('cpu')
+#         test_labels_set = test_labels_set.to('cpu')
     
-        y_predicted = model(test_images_set)
+#         y_predicted = model(test_images_set)
 
 
-torch.quantization.convert(model, inplace = True) # Quantize the model
+# torch.quantization.convert(model, inplace = True) # Quantize the model
 
-model.eval()
+# model.eval()
 
-inf_quant_start = time.time()
+# inf_quant_start = time.time()
 
-with torch.no_grad():
-    number_corrects = 0
-    number_samples = 0
-    for i, (test_images_set , test_labels_set) in enumerate(test_loader):
-        test_images_set = test_images_set.to('cpu')
-        test_labels_set = test_labels_set.to('cpu')
+# with torch.no_grad():
+#     number_corrects = 0
+#     number_samples = 0
+#     for i, (test_images_set , test_labels_set) in enumerate(test_loader):
+#         test_images_set = test_images_set.to('cpu')
+#         test_labels_set = test_labels_set.to('cpu')
     
-        y_predicted = model(test_images_set)
-        labels_predicted = y_predicted.argmax(axis = 1)
-        number_corrects += (labels_predicted==test_labels_set).sum().item()
-        number_samples += test_labels_set.size(0)
-    print(f'Overall accuracy of quantized model is {(number_corrects / number_samples)*100}%')
+#         y_predicted = model(test_images_set)
+#         labels_predicted = y_predicted.argmax(axis = 1)
+#         number_corrects += (labels_predicted==test_labels_set).sum().item()
+#         number_samples += test_labels_set.size(0)
+#     print(f'Overall accuracy of quantized model is {(number_corrects / number_samples)*100}%')
 
-inf_quant_end = time.time()
+# inf_quant_end = time.time()
 
 
-print('total time taken for inference in cpu for pruned and qunatized model is : ', (inf_quant_end-inf_quant_start))
+# print('total time taken for inference in cpu for pruned and qunatized model is : ', (inf_quant_end-inf_quant_start))
+
+
+# def print_size_of_model(model, label=""):
+#     torch.save(model.state_dict(), "temp.p")
+#     size=os.path.getsize("temp.p")
+#     print("model: ",label,' \t','Size (KB):', size/1e3)
+#     os.remove('temp.p')
+#     return size
+
+# # compare the sizes
+# f=print_size_of_model(float_lstm,"fp32")
+# q=print_size_of_model(quantized_lstm,"int8")
+# print("{0:.2f} times smaller".format(f/q))
+
+
 
 #April 21st
 # total time taken for training in cuda is :  1355.2856440544128
@@ -559,3 +589,13 @@ print('total time taken for inference in cpu for pruned and qunatized model is :
 #   warnings.warn(
 # Overall accuracy of quantized model is 74.53999999999999%
 # total time taken for inference in cpu for pruned and qunatized model is :  2.7970638275146484
+
+#one shot local unstructured 0.94 pruning
+# total time taken for training iterative pruning model in cuda is :  1374.6262357234955
+# Overall accuracy of baseline model is 84.35000000000001%
+# total time taken for inference in cpu for pruned model is :  6.834751605987549
+
+# QAT
+# total time taken for training iterative pruning model in cuda is :  4070.051666021347
+# Overall accuracy of baseline model is 87.8%
+# total time taken for inference in cpu for pruned model is :  2.7828962802886963
