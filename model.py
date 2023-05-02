@@ -14,7 +14,7 @@ import torch.nn.utils.prune as prune
 import numpy as np
 import time
 from typing import Type, Any, Callable, Union, List, Optional
-
+import matplotlib.pyplot as plt
 
 model_urls = {
     'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
@@ -276,6 +276,9 @@ def prune_model(model, pruning_rate, mode):
 
     return model
 
+train_loss = []
+train_acc = []
+
 model.train()
 model.to(device)
 # model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
@@ -285,14 +288,14 @@ start_time = time.time()
 
 for i in range(1): 
     # print(f"Iteration {i+1}: Pruning model...")
-    # model = prune_model(model, 0.94, mode = 'local_unstructured')
+    # model = prune_model(model, 0.25, mode = 'local_structured')
 
     # print("Training pruned model...")
 
-    for epoch in range(1):
-        # if epoch == 90:
-            # model = prune_model(model, 0.94, mode = 'local_unstructured')      
-            # print("Training pruned model...")
+    for epoch in range(100):
+        if epoch == 90:
+            model = prune_model(model, 0.94, mode = 'local_unstructured')      
+            print("Training pruned model...")
         for batch_idx, (data, target) in enumerate(train_loader):
 
             data, target = data.to(device), target.to(device)
@@ -303,18 +306,28 @@ for i in range(1):
             loss.backward()
             optimizer.step()
             scheduler.step()
-        
+
             if (batch_idx+1) % 20 == 0:
                 print(f'epoch {epoch+1}/{num_epochs}, step: {batch_idx+1}/{n_total_step}: loss = {loss:.5f}, acc = {100*(n_corrects/target.size(0)):.2f}%')
+
+        train_loss.append(loss.item())
+        train_acc.append(100*(n_corrects/target.size(0)))
+            
             
 
-# for name, module in model.named_modules():
-#         if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
-#         # if isinstance(module, nn.Conv2d):
-#             prune.remove(module, 'weight')
+for name, module in model.named_modules():
+        if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
+        # if isinstance(module, nn.Conv2d):
+            prune.remove(module, 'weight')
 
 end_time = time.time()
 
+plt.plot(train_loss, label='loss')
+plt.plot(train_acc, label= 'accuracy')
+plt.xlabel('iter')
+plt.ylabel('loss and accuracy')
+plt.legend()
+plt.savefig(f'oneshot_training_curve.png')
 
 print('total time taken for training iterative pruning model in cuda is : ', (end_time-start_time))
 
